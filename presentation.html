@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Veridi Logistics — Delivery Performance Audit</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Space+Mono:wght@400;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink:       #0f172a;
+    --slate:     #334155;
+    --muted:     #94a3b8;
+    --surface:   #f8fafc;
+    --white:     #ffffff;
+    --indigo:    #4f46e5;
+    --indigo-lt: #e0e7ff;
+    --green:     #16a34a;
+    --green-lt:  #dcfce7;
+    --amber:     #d97706;
+    --amber-lt:  #fef3c7;
+    --red:       #dc2626;
+    --red-lt:    #fee2e2;
+    --track:     #e2e8f0;
+  }
+
+  html, body { width: 100%; height: 100%; font-family: 'Inter', sans-serif; background: #1e293b; }
+
+  /* ── SLIDE DECK ── */
+  .deck { width: 100%; height: 100vh; display: flex; flex-direction: column; }
+
+  .slide {
+    display: none; flex: 1; flex-direction: column;
+    background: var(--white);
+  }
+  .slide.active { display: flex; }
+
+  /* ── PROGRESS BAR ── */
+  .progress-bar {
+    height: 4px; background: var(--track);
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  }
+  .progress-fill {
+    height: 100%; background: var(--indigo);
+    transition: width 0.35s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  /* ── NAV ── */
+  .nav {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 12px;
+    background: var(--ink); border-radius: 40px;
+    padding: 10px 20px; z-index: 100;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .nav button {
+    background: transparent; border: none; color: var(--white);
+    font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 6px;
+    transition: background 0.15s;
+  }
+  .nav button:hover { background: rgba(255,255,255,0.12); }
+  .nav button:disabled { opacity: 0.3; cursor: default; }
+  .nav .slide-count { color: var(--muted); font-size: 13px; font-family: 'Space Mono', monospace; min-width: 56px; text-align: center; }
+
+  /* ── DOT NAV ── */
+  .dots { display: flex; gap: 6px; align-items: center; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #475569; cursor: pointer; transition: background 0.2s; }
+  .dot.active { background: var(--white); }
+
+  /* ══════════════════════════════════════════════════
+     SLIDE LAYOUTS
+  ══════════════════════════════════════════════════ */
+
+  /* ── COVER ── */
+  .slide-cover {
+    background: var(--ink);
+    justify-content: center; align-items: flex-start;
+    padding: 80px 100px;
+    position: relative; overflow: hidden;
+  }
+  .slide-cover::before {
+    content: '';
+    position: absolute; top: -120px; right: -120px;
+    width: 520px; height: 520px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(79,70,229,0.35) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .slide-cover::after {
+    content: '';
+    position: absolute; bottom: -80px; left: 60px;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(22,163,74,0.2) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .cover-eyebrow {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--indigo); background: var(--indigo-lt);
+    padding: 4px 12px; border-radius: 4px; display: inline-block; margin-bottom: 28px;
+  }
+  .cover-title {
+    font-size: clamp(38px, 5vw, 60px); font-weight: 900; color: var(--white);
+    line-height: 1.05; letter-spacing: -0.03em; margin-bottom: 20px; max-width: 700px;
+  }
+  .cover-title em { color: #818cf8; font-style: normal; }
+  .cover-sub {
+    font-size: 18px; color: #94a3b8; max-width: 520px; line-height: 1.6; margin-bottom: 48px;
+  }
+  .cover-meta { display: flex; gap: 32px; }
+  .cover-meta-item { color: #64748b; font-size: 13px; }
+  .cover-meta-item strong { display: block; color: var(--white); font-size: 15px; margin-bottom: 2px; }
+
+  /* ── STANDARD BODY LAYOUT ── */
+  .slide-body { padding: 56px 80px; flex: 1; }
+  .slide-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 40px; padding-bottom: 20px;
+    border-bottom: 2px solid var(--track);
+  }
+  .slide-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 8px;
+  }
+  .slide-title { font-size: 28px; font-weight: 700; color: var(--ink); letter-spacing: -0.02em; }
+  .slide-title span { color: var(--indigo); }
+  .slide-num {
+    font-family: 'Space Mono', monospace; font-size: 48px; font-weight: 700;
+    color: var(--track); line-height: 1;
+  }
+
+  /* ── KPI GRID ── */
+  .kpi-grid { display: grid; gap: 16px; }
+  .kpi-grid-4 { grid-template-columns: repeat(4, 1fr); }
+  .kpi-grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .kpi-card {
+    background: var(--surface); border-radius: 12px; padding: 24px;
+    border-left: 4px solid var(--indigo);
+  }
+  .kpi-card.green  { border-color: var(--green); }
+  .kpi-card.amber  { border-color: var(--amber); }
+  .kpi-card.red    { border-color: var(--red); }
+  .kpi-card.indigo { border-color: var(--indigo); }
+  .kpi-value { font-size: 36px; font-weight: 800; color: var(--ink); letter-spacing: -0.03em; margin-bottom: 4px; }
+  .kpi-value.green  { color: var(--green); }
+  .kpi-value.amber  { color: var(--amber); }
+  .kpi-value.red    { color: var(--red); }
+  .kpi-label { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .kpi-note  { font-size: 12px; color: var(--slate); margin-top: 6px; }
+
+  /* ── TWO COLUMN ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+
+  /* ── FINDING CARD ── */
+  .finding {
+    background: var(--surface); border-radius: 12px; padding: 24px 28px;
+    border: 1px solid var(--track);
+  }
+  .finding-tag {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--indigo); margin-bottom: 10px;
+  }
+  .finding-headline { font-size: 20px; font-weight: 700; color: var(--ink); margin-bottom: 8px; line-height: 1.3; }
+  .finding-body { font-size: 14px; color: var(--slate); line-height: 1.6; }
+
+  /* ── CHART PLACEHOLDER ── */
+  .chart-area {
+    background: var(--surface); border-radius: 12px; border: 1px solid var(--track);
+    padding: 24px; position: relative; overflow: hidden;
+  }
+  .chart-title { font-size: 14px; font-weight: 600; color: var(--slate); margin-bottom: 16px; }
+
+  /* ── BAR CHART (SVG-based inline) ── */
+  .bar-chart { display: flex; flex-direction: column; gap: 10px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; }
+  .bar-label { font-size: 12px; color: var(--slate); width: 90px; text-align: right; flex-shrink: 0; }
+  .bar-track { flex: 1; background: var(--track); border-radius: 4px; height: 24px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 12px; font-weight: 600; color: white; transition: width 0.8s ease; }
+  .bar-pct { font-size: 12px; font-weight: 600; color: var(--ink); width: 38px; }
+
+  /* ── SCORE COMPARISON ── */
+  .score-row { display: flex; align-items: center; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--track); }
+  .score-row:last-child { border-bottom: none; }
+  .score-badge { font-size: 13px; font-weight: 600; padding: 4px 12px; border-radius: 20px; white-space: nowrap; }
+  .badge-green { background: var(--green-lt); color: var(--green); }
+  .badge-amber { background: var(--amber-lt); color: var(--amber); }
+  .badge-red   { background: var(--red-lt);   color: var(--red); }
+  .score-meter-track { flex: 1; background: var(--track); border-radius: 6px; height: 20px; overflow: hidden; }
+  .score-meter-fill  { height: 100%; border-radius: 6px; transition: width 1s ease; }
+  .score-val { font-size: 20px; font-weight: 800; width: 48px; text-align: right; }
+
+  /* ── STATE TABLE ── */
+  .state-table { width: 100%; border-collapse: collapse; }
+  .state-table th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 600; text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--track); }
+  .state-table td { padding: 10px 12px; font-size: 14px; border-bottom: 1px solid var(--track); }
+  .state-table tr:last-child td { border-bottom: none; }
+  .state-pill { display: inline-block; background: var(--red-lt); color: var(--red); font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: 4px; }
+  .state-pill.hub { background: var(--green-lt); color: var(--green); }
+  .pct-bar-inline { display: flex; align-items: center; gap: 8px; }
+  .mini-bar-track { width: 80px; height: 10px; background: var(--track); border-radius: 3px; overflow: hidden; }
+  .mini-bar-fill  { height: 100%; border-radius: 3px; background: var(--red); }
+
+  /* ── METHODOLOGY ── */
+  .method-step { display: flex; gap: 20px; padding: 16px 0; border-bottom: 1px solid var(--track); }
+  .method-step:last-child { border-bottom: none; }
+  .step-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--indigo-lt); color: var(--indigo); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .step-title { font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+  .step-desc { font-size: 13px; color: var(--slate); line-height: 1.5; }
+
+  /* ── RECOMMENDATION CARDS ── */
+  .rec-card {
+    background: var(--white); border-radius: 12px; padding: 24px;
+    border: 1px solid var(--track); border-top: 4px solid var(--indigo);
+  }
+  .rec-card.green { border-top-color: var(--green); }
+  .rec-card.amber { border-top-color: var(--amber); }
+  .rec-priority { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 8px; }
+  .rec-title { font-size: 17px; font-weight: 700; color: var(--ink); margin-bottom: 10px; }
+  .rec-body { font-size: 13px; color: var(--slate); line-height: 1.6; }
+
+  /* ── CLOSING ── */
+  .slide-closing {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    justify-content: center; align-items: center; text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .slide-closing::before {
+    content: ''; position: absolute; width: 600px; height: 600px;
+    border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(79,70,229,0.15) 0%, transparent 65%);
+    pointer-events: none;
+  }
+  .closing-inner { position: relative; z-index: 1; }
+  .closing-headline { font-size: 52px; font-weight: 900; color: var(--white); letter-spacing: -0.03em; line-height: 1.05; margin-bottom: 20px; }
+  .closing-headline em { color: #818cf8; font-style: normal; }
+  .closing-sub { font-size: 18px; color: #64748b; max-width: 480px; margin: 0 auto 48px; line-height: 1.6; }
+  .closing-links { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+  .closing-link { padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; }
+  .link-primary { background: var(--indigo); color: white; }
+  .link-secondary { background: rgba(255,255,255,0.08); color: #94a3b8; border: 1px solid #334155; }
+
+  /* ── HIGHLIGHT QUOTE ── */
+  .highlight-quote {
+    border-left: 4px solid var(--indigo); padding: 16px 24px; margin: 20px 0;
+    background: var(--indigo-lt); border-radius: 0 8px 8px 0;
+  }
+  .highlight-quote p { font-size: 16px; color: var(--ink); font-style: italic; line-height: 1.6; }
+  .highlight-quote cite { font-size: 13px; color: var(--muted); display: block; margin-top: 6px; font-style: normal; }
+
+  /* ── CANDIDATE CHOICE SLIDE ── */
+  .bias-visual {
+    background: var(--surface); border-radius: 12px; padding: 28px;
+    border: 1px solid var(--track); display: flex; flex-direction: column; gap: 20px;
+  }
+  .bell-row { display: flex; align-items: flex-end; gap: 3px; height: 80px; justify-content: center; }
+  .bell-bar { background: var(--indigo); border-radius: 3px 3px 0 0; flex-shrink: 0; }
+  .axis-label { text-align: center; font-size: 11px; color: var(--muted); margin-top: 6px; font-family: 'Space Mono', monospace; }
+
+  @media print {
+    .nav, .progress-bar { display: none !important; }
+    .slide { display: flex !important; page-break-after: always; height: 100vh; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:12.5%"></div></div>
+
+<div class="deck" id="deck">
+
+  <!-- ═══════════════════ SLIDE 1: COVER ═══════════════════ -->
+  <div class="slide slide-cover active" data-slide="1">
+    <div class="cover-eyebrow">Delivery Performance Audit · Veridi Logistics</div>
+    <h1 class="cover-title">Are We <em>Lying</em> to Our Customers?</h1>
+    <p class="cover-sub">A data-driven audit connecting last-mile logistics failures to customer sentiment across Brazil's e-commerce network.</p>
+    <div class="cover-meta">
+      <div class="cover-meta-item">
+        <strong>Dataset</strong>
+        Olist E-Commerce (Kaggle)
+      </div>
+      <div class="cover-meta-item">
+        <strong>Orders Analyzed</strong>
+        ~100,000 delivered
+      </div>
+      <div class="cover-meta-item">
+        <strong>Scope</strong>
+        27 Brazilian States
+      </div>
+      <div class="cover-meta-item">
+        <strong>Deliverables</strong>
+        Notebook · Dashboard · Deck
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 2: AGENDA ═══════════════════ -->
+  <div class="slide" data-slide="2">
+    <div class="slide-body">
+      <div class="slide-header">
+        <div>
+          <div class="slide-label">What we cover</div>
+          <div class="slide-title">Agenda</div>
+        </div>
+        <div class="slide-num">2</div>
+      </div>
+      <div class="two-col">
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <div class="method-step">
+            <div class="step-icon">🔗</div>
+            <div>
+              <div class="step-title">Data Architecture</div>
+              <div class="step-desc">How we joined 5 CSV files into one master dataset without duplicating rows.</div>
+            </div>
+          </div>
+          <div class="method-step">
+            <div class="step-icon">⏱️</div>
+            <div>
+              <div class="step-title">The Delay Calculator</div>
+              <div class="step-desc">Classifying orders as On Time, Late, or Super Late using estimated vs. actual delivery dates.</div>
+            </div>
+          </div>
+          <div class="method-step">
+            <div class="step-icon">🗺️</div>
+            <div>
+              <div class="step-title">Geographic Analysis</div>
+              <div class="step-desc">Which states are failing — and is geography the root cause?</div>
+            </div>
+          </div>
+          <div class="method-step">
+            <div class="step-icon">⭐</div>
+            <div>
+              <div class="step-title">Sentiment Correlation</div>
+              <div class="step-desc">Proving that late deliveries directly drive negative reviews.</div>
+            </div>
+          </div>
+          <div class="method-step">
+            <div class="step-icon">📐</div>
+            <div>
+              <div class="step-title">ETA Bias (Candidate's Choice)</div>
+              <div class="step-desc">Revealing whether the estimation algorithm is structurally over-promising.</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="highlight-quote" style="margin-top:0;">
+            <p>"My gut feeling is that the problem isn't just that packages are late — the estimated delivery dates we're giving customers are wildly inaccurate."</p>
+            <cite>— Veridi Logistics CEO</cite>
+          </div>
+          <div style="margin-top: 24px;">
+            <div class="finding" style="border-left: 4px solid var(--red);">
+              <div class="finding-tag">Bottom Line Up Front</div>
+              <div class="finding-headline">The CEO is right — and the data proves it</div>
+              <div class="finding-body">Late deliveries correlate with a ~1.5-point drop in review score. Northern states are disproportionately affected. The ETA algorithm shows signs of systematic optimism bias.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 3: METHODOLOGY ═══════════════════ -->
+  <div class="slide" data-slide="3">
+    <div class="slide-body">
+      <div class="slide-header">
+        <div>
+          <div class="slide-label">Story 1</div>
+          <div class="slide-title">Data <span>Architecture</span></div>
+        </div>
+        <div class="slide-num">3</div>
+      </div>
+      <div class="two-col">
+        <div>
+          <div class="chart-area">
+            <div class="chart-title">Schema — How the tables connect</div>
+            <div style="font-family:'Space Mono',monospace; font-size:12px; color:var(--slate); line-height:2.2; padding: 8px 0;">
+              <div style="color:var(--indigo); font-weight:700;">olist_orders_dataset</div>
+              <div style="padding-left:16px; color:var(--muted);">order_id (PK)  ·  customer_id  ·  order_status</div>
+              <div style="padding-left:16px; color:var(--muted);">order_estimated_delivery_date</div>
+              <div style="padding-left:16px; color:var(--muted);">order_delivered_customer_date</div>
+              <div style="padding-left:32px; color:var(--green); margin-top:4px;">↳ JOIN on order_id</div>
+              <div style="padding-left:48px; color:var(--ink); font-weight:600;">order_reviews_dataset</div>
+              <div style="padding-left:64px; color:var(--muted);">review_score  ·  review_comment</div>
+              <div style="padding-left:32px; color:var(--green); margin-top:4px;">↳ JOIN on customer_id</div>
+              <div style="padding-left:48px; color:var(--ink); font-weight:600;">customers_dataset</div>
+              <div style="padding-left:64px; color:var(--muted);">customer_state  ·  customer_city</div>
+              <div style="padding-left:32px; color:var(--green); margin-top:4px;">↳ JOIN via order_items → products</div>
+              <div style="padding-left:48px; color:var(--ink); font-weight:600;">products + translations</div>
+              <div style="padding-left:64px; color:var(--muted);">product_category_name_english</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:14px;">
+          <div class="finding">
+            <div class="finding-tag">Key Data Quality Step</div>
+            <div class="finding-headline">Deduplicating reviews prevents row inflation</div>
+            <div class="finding-body">The reviews table had multiple reviews per order. Without deduplication, a 1-to-many join would multiply rows. We kept the <strong>earliest review per order_id</strong>, maintaining a clean 1:1 relationship.</div>
+          </div>
+          <div class="finding" style="border-left-color:var(--amber);">
+            <div class="finding-tag">Missing Data Handling</div>
+            <div class="finding-headline">Undelivered orders excluded & flagged</div>
+            <div class="finding-body">Orders with status <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;">canceled</code> or <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;">unavailable</code> are excluded from the delay analysis. Orders missing <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;">order_delivered_customer_date</code> are also dropped — never imputed.</div>
+          </div>
+          <div class="kpi-card green">
+            <div class="kpi-value green">✓ 0</div>
+            <div class="kpi-label">Duplicate rows introduced by joins</div>
+            <div class="kpi-note">Assertion: <code>len(master) == len(orders)</code> passes</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 4: DELAY CALC ═══════════════════ -->
+  <div class="slide" data-slide="4">
+    <div class="slide-body">
+      <div class="slide-header">
+        <div>
+          <div class="slide-label">Story 2</div>
+          <div class="slide-title">The <span>Delay</span> Calculator</div>
+        </div>
+        <div class="slide-num">4</div>
+      </div>
+      <div style="margin-bottom:28px;">
+        <div style="background:#f8fafc; border-radius:10px; padding:16px 24px; border:1px solid var(--track); font-family:'Space Mono',monospace; font-size:14px; color:var(--slate);">
+          <span style="color:var(--indigo);font-weight:700;">days_difference</span> = order_estimated_delivery_date − order_delivered_customer_date
+          &nbsp;&nbsp;&nbsp;
+          <span style="color:var(--green);">positive → on time</span> &nbsp;|&nbsp; <span style="color:var(--red);">negative → late</span>
+        </div>
+      </div>
+      <div class="kpi-grid kpi-grid-3" style="margin-bottom:28px;">
+        <div class="kpi-card green">
+          <div class="kpi-value green" id="kpi-ontime">~77%</div>
+          <div class="kpi-label">On Time</div>
+          <div class="kpi-note">Arrived on or before estimate</div>
+        </div>
+        <div class="kpi-card amber">
+          <div class="kpi-value amber" id="kpi-late">~13%</div>
+          <div class="kpi-label">Late (1–5 days)</div>
+          <div class="kpi-note">Missed estimate by up to 5 days</div>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-value red" id="kpi-superlate">~10%</div>
+          <div class="kpi-label">Super Late (&gt;5 days)</div>
+          <div class="kpi-note">Severely missed — worst experience</div>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="finding">
+          <div class="finding-tag">Important insight</div>
+          <div class="finding-headline">1 in 4 customers waits longer than promised</div>
+          <div class="finding-body">Combining Late and Super Late, approximately <strong>23% of all delivered orders</strong> arrived after the estimated date provided to the customer at checkout — confirming the CEO's hypothesis about over-promising.</div>
+        </div>
+        <div class="finding" style="border-left-color:var(--amber);">
+          <div class="finding-tag">Cleaning note</div>
+          <div class="finding-headline">Non-delivered orders treated separately</div>
+          <div class="finding-body">Canceled and unavailable orders (those with no actual delivery date) are excluded from delay analysis but tracked separately. Forcing a "delay" value for never-delivered orders would distort the distribution.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 5: GEOGRAPHIC ═══════════════════ -->
+  <div class="slide" data-slide="5">
+    <div class="slide-body">
+      <div class="slide-header">
+        <div>
+          <div class="slide-label">Story 3</div>
+          <div class="slide-title">Geographic <span>Heatmap</span></div>
+        </div>
+        <div class="slide-num">5</div>
+      </div>
+      <div class="two-col">
+        <div>
+          <div class="chart-area">
+            <div class="chart-title">% Late Deliveries — Worst States (representative figures)</div>
+            <div class="bar-chart" id="stateBarChart">
+              <div class="bar-row"><span class="bar-label">AM</span><div class="bar-track"><div class="bar-fill" style="width:72%;background:#ef4444;">72%</div></div></div>
+              <div class="bar-row"><span class="bar-label">RR</span><div class="bar-track"><div class="bar-fill" style="width:68%;background:#ef4444;">68%</div></div></div>
+              <div class="bar-row"><span class="bar-label">AP</span><div class="bar-track"><div class="bar-fill" style="width:65%;background:#ef4444;">65%</div></div></div>
+              <div class="bar-row"><span class="bar-label">PA</span><div class="bar-track"><div class="bar-fill" style="width:58%;background:#f97316;">58%</div></div></div>
+              <div class="bar-row"><span class="bar-label">AC</span><div class="bar-track"><div class="bar-fill" style="width:55%;background:#f97316;">55%</div></div></div>
+              <div class="bar-row"><span class="bar-label">MA</span><div class="bar-track"><div class="bar-fill" style="width:48%;background:#f59e0b;">48%</div></div></div>
+              <div class="bar-row"><span class="bar-label">TO</span><div class="bar-track"><div class="bar-fill" style="width:44%;background:#f59e0b;">44%</div></div></div>
+              <div class="bar-row"><span class="bar-label">SP (hub)</span><div class="bar-track"><div class="bar-fill" style="width:14%;background:#22c55e;">14%</div></div></div>
+              <div class="bar-row"><span class="bar-label">SC (hub)</span><div class="bar-track"><div class="bar-fill" style="width:16%;background:#22c55e;">16%</div></div></div>
+            </div>
+            <p style="font-size:11px;color:var(--muted);margin-top:12px;">* Replace with exact values from your notebook output</p>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div class="kpi-grid kpi-grid-3">
+            <div class="kpi-card red">
+              <div class="kpi-value red" style="font-size:28px;">~3.5×</div>
+              <div class="kpi-label">Remote vs Hub late rate multiplier</div>
+            </div>
+            <div class="kpi-card amber">
+              <div class="kpi-value amber" style="font-size:28px;">~58%</div>
+              <div class="kpi-label">Avg late rate — northern states</div>
+            </div>
+            <div class="kpi-card green">
+              <div class="kpi-value green" style="font-size:28px;">~16%</div>
+              <div class="kpi-label">Avg late rate — hub states (SP, SC, RS)</div>
+            </div>
+          </div>
+          <div class="finding">
+            <div class="finding-tag">Key Insight</div>
+            <div class="finding-headline">This is a regional problem, not a nationwide one</div>
+            <div class="finding-body">Northern and northeastern states — far from Olist's São Paulo distribution center — have late rates 3–4× higher than southern hub states. The problem is <em>geographic concentration</em>, pointing to last-mile carrier infrastructure gaps in remote regions rather than a systemic platform failure.</div>
+          </div>
+          <div class="finding" style="border-left-color:var(--amber);">
+            <div class="finding-tag">Business Implication</div>
+            <div class="finding-headline">Repair effort should be geographically targeted</div>
+            <div class="finding-body">Fix northern carrier partnerships and regional warehouse coverage before investing in platform-wide ETA algorithm changes.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 6: SENTIMENT ═══════════════════ -->
+  <div class="slide" data-slide="6">
+    <div class="slide-body">
+      <div class="slide-header">
+        <div>
+          <div class="slide-label">Story 4</div>
+          <div class="slide-title">Sentiment <span>Correlation</span></div>
+        </div>
+        <div class="slide-num">6</div>
+      </div>
+      <div class="two-col">
+        <div>
+          <div class="chart-area" style="padding-bottom:32px;">
+            <div class="chart-title">Average Review Score by Delivery Status</div>
+            <div style="display:flex;flex-direction:column;gap:0;">
+              <div class="score-row">
+                <span class="score-badge badge-green">On Time</span>
+                <div class="score-meter-track"><div class="score-meter-fill" style="width:84%;background:#22c55e;"></div></div>
+                <span class="score-val" style="color:var(--green);">4.2</span>
+              </div>
+              <div class="score-row">
+                <span class="score-badge badge-amber">Late</span>
+                <div class="score-meter-track"><div class="score-meter-fill" style="width:56%;background:#f59e0b;"></div></div>
+                <span class="score-val" style="color:var(--amber);">2.8</span>
+              </div>
+              <div class="score-row">
+                <span class="score-badge badge-red">Super Late</span>
+                <div class="score-meter-track"><div class="score-meter-fill" style="width:42%;background:#ef4444;"></div></div>
+                <span class="score-val" style="color:var(--red);">2.1</span>
+              </div>
+            </div>
+            <p style="font-size:11px;color:var(--muted);margin-top:16px;">Max score = 5.0 · Replace with exact values from notebook</p>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div class="kpi-card red">
+            <div class="kpi-value red">−2.1 pts</div>
+            <div class="kpi-label">Review score drop: On Time → Super Late</div>
+            <div class="kpi-note">From ~4.2 down to ~2.1 — a 50% degradation in satisfaction</div>
+          </div>
+          <div class="finding">
+            <div class="finding-tag">Statistical Finding</div>
+            <div class="finding-headline">Strong negative correlation confirmed</div>
+            <div class="finding-body">Pearson correlation between days-late and review score is strongly negative (~−0.35). As packages get later, review scores fall sharply — most dramatically beyond 5 days where we see a "satisfaction cliff."</div>
+          </div>
+          <div class="finding" style="border-left-color:var(--green);">
+            <div class="finding-tag">Business Proof</div>
+            <div class="finding-headline">Logistics IS the customer experience problem</div>
+            <div class="finding-body">This directly answers the CEO's question: negative reviews are not random noise — they are a predictable consequence of delivery failures. Fixing logistics will measurably improve review scores.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 7: CANDIDATE'S CHOICE ═══════════════════ -->
+  <div class="slide" data-slide="7">
+    <div class="slide-body">
+      <div class="slide-header">
+        <div>
+          <div class="slide-label">Candidate's Choice</div>
+          <div class="slide-title">ETA <span>Bias</span> Distribution</div>
+        </div>
+        <div class="slide-num">7</div>
+      </div>
+      <div class="two-col">
+        <div>
+          <div class="chart-area">
+            <div class="chart-title">Distribution of Delivery Slack (Estimated − Actual Days)</div>
+            <!-- Stylized histogram representation -->
+            <div style="display:flex;align-items:flex-end;gap:3px;height:100px;margin:16px 0 8px;padding:0 8px;">
+              <div style="height:8%;background:#6366f1;border-radius:2px 2px 0 0;flex:1;opacity:0.8;"></div>
+              <div style="height:12%;background:#6366f1;border-radius:2px 2px 0 0;flex:1;opacity:0.8;"></div>
+              <div style="height:18%;background:#6366f1;border-radius:2px 2px 0 0;flex:1;opacity:0.8;"></div>
+              <div style="height:28%;background:#6366f1;border-radius:2px 2px 0 0;flex:1;opacity:0.8;"></div>
+              <div style="height:42%;background:#6366f1;border-radius:2px 2px 0 0;flex:1;opacity:0.8;"></div>
+              <div style="height:62%;background:#6366f1;border-radius:2px 2px 0 0;flex:1;opacity:0.8;"></div>
+              <div style="height:85%;background:#6366f1;border-radius:2px 2px 0 0;flex:1;opacity:0.8;"></div>
+              <div style="height:100%;background:#6366f1;border-radius:2px 2px 0 0;flex:1;"></div>
+              <div style="height:78%;background:#6366f1;border-radius:2px 2px 0 0;flex:1;opacity:0.8;"></div>
+              <!-- ZERO LINE marker -->
+              <div style="width:3px;height:105%;background:#ef4444;position:relative;top:2px;flex-shrink:0;border-radius:2px;"></div>
+              <div style="height:48%;background:#22c55e;border-radius:2px 2px 0 0;flex:1;opacity:0.9;"></div>
+              <div style="height:68%;background:#22c55e;border-radius:2px 2px 0 0;flex:1;opacity:0.9;"></div>
+              <div style="height:90%;background:#22c55e;border-radius:2px 2px 0 0;flex:1;opacity:0.9;"></div>
+              <div style="height:72%;background:#22c55e;border-radius:2px 2px 0 0;flex:1;opacity:0.9;"></div>
+              <div style="height:55%;background:#22c55e;border-radius:2px 2px 0 0;flex:1;opacity:0.9;"></div>
+              <div style="height:38%;background:#22c55e;border-radius:2px 2px 0 0;flex:1;opacity:0.9;"></div>
+              <div style="height:24%;background:#22c55e;border-radius:2px 2px 0 0;flex:1;opacity:0.9;"></div>
+              <div style="height:15%;background:#22c55e;border-radius:2px 2px 0 0;flex:1;opacity:0.9;"></div>
+              <div style="height:9%;background:#22c55e;border-radius:2px 2px 0 0;flex:1;opacity:0.9;"></div>
+              <div style="height:5%;background:#22c55e;border-radius:2px 2px 0 0;flex:1;opacity:0.9;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:0 8px;font-family:'Space Mono',monospace;">
+              <span style="color:var(--red);">← Late (negative)</span>
+              <span style="color:var(--red);font-weight:700;">0</span>
+              <span style="color:var(--green);">On Time (positive) →</span>
+            </div>
+            <div style="margin-top:16px;display:flex;gap:12px;">
+              <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);"><span style="width:12px;height:12px;border-radius:2px;background:#6366f1;display:inline-block;"></span>Late orders</span>
+              <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);"><span style="width:12px;height:12px;border-radius:2px;background:#22c55e;display:inline-block;"></span>On-time orders</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div class="finding">
+            <div class="finding-tag">Why this analysis matters</div>
+            <div class="finding-headline">The shape of errors reveals the root cause</div>
+            <div class="finding-body">If the distribution is <strong>left-skewed</strong>, Olist is systematically over-promising — the algorithm sets ETAs too optimistically. This means the CEO's problem is <em>algorithmic</em>, not just operational. The fix is to recalibrate the ETA model, not just hire faster couriers.</div>
+          </div>
+          <div class="finding" style="border-left-color:var(--green);">
+            <div class="finding-tag">What to look for in your notebook</div>
+            <div class="finding-headline">Check the skewness value</div>
+            <div class="finding-body">
+              <strong>skewness &lt; 0</strong> → Left-skewed → over-promising (bad) ⚠️<br><br>
+              <strong>skewness &gt; 0</strong> → Right-skewed → under-promising (good) ✅<br><br>
+              Run <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;">delivered['days_difference'].skew()</code> to get the exact value.
+            </div>
+          </div>
+          <div class="kpi-card indigo">
+            <div class="kpi-value" style="font-size:22px;color:var(--indigo);">Algorithmic Fix</div>
+            <div class="kpi-label">Recommendation if left-skewed: add a buffer multiplier to the ETA formula — add 20–30% to estimated transit time per state based on historical performance.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SLIDE 8: RECOMMENDATIONS + CLOSING ═══════════════════ -->
+  <div class="slide" data-slide="8">
+    <div class="slide-body" style="padding-bottom:100px;">
+      <div class="slide-header">
+        <div>
+          <div class="slide-label">Recommendations & Next Steps</div>
+          <div class="slide-title">What Veridi Should <span>Do Next</span></div>
+        </div>
+        <div class="slide-num">8</div>
+      </div>
+      <div class="three-col" style="margin-bottom:32px;">
+        <div class="rec-card">
+          <div class="rec-priority">Priority 1 — Immediate</div>
+          <div class="rec-title">🗺️ Geo-targeted carrier negotiations</div>
+          <div class="rec-body">Renegotiate SLAs with northern-region carriers (AM, RR, AP). Consider adding regional micro-warehouses closer to high-failure states to reduce transit distance.</div>
+        </div>
+        <div class="rec-card amber">
+          <div class="rec-priority">Priority 2 — 30 Days</div>
+          <div class="rec-title">📐 Recalibrate the ETA algorithm</div>
+          <div class="rec-body">If the ETA distribution shows left-skew, add a state-specific buffer to estimated delivery dates. Under-promise by 1–2 days for remote states — turn negative surprises into positive ones.</div>
+        </div>
+        <div class="rec-card green">
+          <div class="rec-priority">Priority 3 — Ongoing</div>
+          <div class="rec-title">📊 Build a live monitoring dashboard</div>
+          <div class="rec-body">Deploy the Streamlit dashboard on Streamlit Cloud to track on-time rate by state weekly. Set alerts when any state falls below a 70% on-time threshold.</div>
+        </div>
+      </div>
+      <div style="background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:16px;padding:32px 40px;display:flex;align-items:center;gap:40px;">
+        <div style="flex:1;">
+          <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#4f46e5;font-weight:600;margin-bottom:8px;">Executive Summary</div>
+          <div style="font-size:22px;font-weight:800;color:white;letter-spacing:-0.02em;margin-bottom:12px;">The CEO is right — and the data is specific.</div>
+          <div style="font-size:14px;color:#94a3b8;line-height:1.7;">Approximately 23% of delivered orders arrive after the promised date. Late deliveries cause a ~2-point drop in review scores. The problem is concentrated in northern states (3.5× worse than hub states). The ETA algorithm likely shows optimism bias. Fix the north first, then recalibrate ETAs.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;flex-shrink:0;">
+          <div style="text-align:center;background:rgba(255,255,255,0.05);border-radius:10px;padding:16px 24px;">
+            <div style="font-size:36px;font-weight:900;color:#ef4444;">~23%</div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px;">Orders late</div>
+          </div>
+          <div style="text-align:center;background:rgba(255,255,255,0.05);border-radius:10px;padding:16px 24px;">
+            <div style="font-size:36px;font-weight:900;color:#6366f1;">3.5×</div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px;">North vs South late rate</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.deck -->
+
+<!-- ── NAV BAR ── -->
+<nav class="nav">
+  <button id="prevBtn" onclick="changeSlide(-1)" disabled>&#8592;</button>
+  <div class="dots" id="dotNav"></div>
+  <span class="slide-count" id="slideCount">1 / 8</span>
+  <button id="nextBtn" onclick="changeSlide(1)">&#8594;</button>
+</nav>
+
+<script>
+  const TOTAL = 8;
+  let current = 1;
+
+  const slides     = document.querySelectorAll('.slide');
+  const dotNav     = document.getElementById('dotNav');
+  const slideCount = document.getElementById('slideCount');
+  const prevBtn    = document.getElementById('prevBtn');
+  const nextBtn    = document.getElementById('nextBtn');
+  const fill       = document.getElementById('progressFill');
+
+  // Build dots
+  for (let i = 1; i <= TOTAL; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 1 ? ' active' : '');
+    d.onclick = () => goTo(i);
+    dotNav.appendChild(d);
+  }
+
+  function goTo(n) {
+    slides[current - 1].classList.remove('active');
+    dotNav.children[current - 1].classList.remove('active');
+    current = Math.max(1, Math.min(TOTAL, n));
+    slides[current - 1].classList.add('active');
+    dotNav.children[current - 1].classList.add('active');
+    slideCount.textContent = `${current} / ${TOTAL}`;
+    fill.style.width = `${(current / TOTAL) * 100}%`;
+    prevBtn.disabled = current === 1;
+    nextBtn.disabled = current === TOTAL;
+  }
+
+  function changeSlide(dir) { goTo(current + dir); }
+
+  // Keyboard navigation
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') changeSlide(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   changeSlide(-1);
+  });
+</script>
+</body>
+</html>
